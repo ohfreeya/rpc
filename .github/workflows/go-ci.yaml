@@ -52,16 +52,7 @@ jobs:
       - name: Notify Teams with Card
         if: success()
         run: |
-          curl -H "Content-Type: application/json" \
-              -d '{
-                    "@type": "MessageCard",
-                    "@context": "http://schema.org/extensions",
-                    "summary": "CI Build Success",
-                    "themeColor": "00FF00",
-                    "title": "Docker Image Push Success",
-                    "sections": [{
-                      "activityTitle": "Docker image myusername/test-ci:${GITHUB_SHA} pushed successfully!",
-                      "activitySubtitle": "Branch: $GITHUB_REF"
-                    }]
-                  }' \
-              ${{ secrets.TEAMS_WEBHOOK }}
+          curl -X POST \
+          -H "Content-Type: application/json" \
+          -d '{ "text": "🚀 CI message from GitHub Actions" }' \
+          "${{ secrets.TEAMS_WORKFLOW_WEBHOOK }}"
