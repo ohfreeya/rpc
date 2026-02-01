@@ -52,7 +52,12 @@ jobs:
       - name: Notify Teams with Card
         if: success()
         run: |
-          curl -X POST \
-          -H "Content-Type: application/json" \
-          -d '{ "text": "🚀 CI message from GitHub Actions" }' \
-          "${{ secrets.TEAMS_WEBHOOK }}"
+           curl -X POST \
+            -H "Content-Type: application/json" \
+            -d '{
+                  "status": "success",
+                  "image": "'"${IMAGE_NAME}:${{ github.sha }}"'",
+                  "tag": "'"${GITHUB_REF_NAME}"'",
+                  "branch": "'"${GITHUB_REF_NAME}"'"
+                }' \
+            "${{ secrets.TEAMS_WEBHOOK }}"
