@@ -49,15 +49,38 @@ jobs:
           docker push $IMAGE_NAME:latest
           docker push $IMAGE_NAME:${{ github.sha }}
       
-      - name: Notify Teams with Card
+      - name: Notify Teams with Success
         if: success()
         run: |
            curl -X POST \
             -H "Content-Type: application/json" \
             -d '{
-                  "status": "success",
-                  "image": "'"${IMAGE_NAME}:${{ github.sha }}"'",
-                  "tag": "'"${GITHUB_REF_NAME}"'",
-                  "branch": "'"${GITHUB_REF_NAME}"'"
-                }' \
+              "type": "message",
+              "attachments": [
+                  {
+                      "contentType": "application/vnd.microsoft.card.adaptive",
+                      "content": {
+                          "type": "AdaptiveCard",
+                          "body": [
+                              {
+                                  "type": "TextBlock",
+                                  "size": "Medium",
+                                  "weight": "Bolder",
+                                  "text": "🚀 CI/CD Notification"
+                              },
+                              {
+                                  "type": "FactSet",
+                                  "facts": [
+                                      { "title": "Status", "value": "Success" },
+                                      { "title": "Image", "value": "'"${IMAGE_NAME}"'" },
+                                      { "title": "Branch", "value": "'"${GITHUB_REF_NAME}"'" }
+                                  ]
+                              }
+                          ],
+                          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                          "version": "1.4"
+                      }
+                  }
+              ]
+            }' \
             "${{ secrets.TEAMS_WEBHOOK }}"
