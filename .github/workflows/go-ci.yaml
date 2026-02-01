@@ -55,4 +55,4 @@ jobs:
           curl -X POST \
           -H "Content-Type: application/json" \
           -d '{ "text": "🚀 CI message from GitHub Actions" }' \
-          "${{ secrets.TEAMS_WORKFLOW_WEBHOOK }}"
+          "${{ secrets.TEAMS_WEBHOOK }}"
