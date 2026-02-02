@@ -13,30 +13,27 @@ on:
 
 jobs:
   test:
-    name: Run Test & Build Docker Image
+    name: Run Test
     runs-on: ubuntu-latest
 
     steps:
-      - name: checkout
-        uses: actions/checkout@v3
-    
+      - uses: actions/checkout@v4
       - name: Set up Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v4
         with:
-          go-version: 1.25
-      
-      - name: Download dependencies
+          go-version: ${{ env.GO_VERSION }}
+      - name: Test
         run: |
           go mod tidy
-          go mod download
+          go test -v ./... -race -cover
 
-      - name: Test
-        run: go test -v ./... -race -cover
-
-      - name: Build Docker Image
-        run: |
-          docker build -t $IMAGE_NAME:latest .
-          docker tag $IMAGE_NAME:latest $IMAGE_NAME:${{ github.sha }}
+  build-and-push:
+      name: Build Docker Image
+      runs-on: ubuntu-latest
+      needs: test
+      steps:
+      - name: checkout
+        uses: actions/checkout@v3
 
       - name: Login to Docker Hub
         uses: docker/login-action@v2
@@ -44,43 +41,48 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Push Docker Image
+      - name: Build and Push Docker Image
         run: |
+          docker build -t $IMAGE_NAME:latest -t $IMAGE_NAME:${{ github.sha }} .
           docker push $IMAGE_NAME:latest
           docker push $IMAGE_NAME:${{ github.sha }}
-      
-      - name: Notify Teams with Success
-        if: success()
+
+  notify:
+    name: Notify Teams
+    runs-on: ubuntu-latest
+    needs: [test, build-and-push]
+    if: always()
+    steps:
+      - name: Set Status Text
+        id: status
         run: |
-           curl -X POST \
-            -H "Content-Type: application/json" \
+          if [ "${{ needs.build-and-push.result }}" == "success" ]; then
+            echo "text=Success" >> $GITHUB_OUTPUT
+            echo "color=good" >> $GITHUB_OUTPUT
+          else
+            echo "text=Failed" >> $GITHUB_OUTPUT
+            echo "color=attention" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Send Notification
+        run: |
+          curl -X POST -H "Content-Type: application/json" \
             -d '{
               "type": "message",
-              "attachments": [
-                  {
-                      "contentType": "application/vnd.microsoft.card.adaptive",
-                      "content": {
-                          "type": "AdaptiveCard",
-                          "body": [
-                              {
-                                  "type": "TextBlock",
-                                  "size": "Medium",
-                                  "weight": "Bolder",
-                                  "text": "🚀 CI/CD Notification"
-                              },
-                              {
-                                  "type": "FactSet",
-                                  "facts": [
-                                      { "title": "Status", "value": "Success" },
-                                      { "title": "Image", "value": "'"${IMAGE_NAME}"'" },
-                                      { "title": "Branch", "value": "'"${GITHUB_REF_NAME}"'" }
-                                  ]
-                              }
-                          ],
-                          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
-                          "version": "1.4"
-                      }
-                  }
-              ]
-            }' \
-            "${{ secrets.TEAMS_WEBHOOK }}"
+              "attachments": [{
+                "contentType": "application/vnd.microsoft.card.adaptive",
+                "content": {
+                  "type": "AdaptiveCard",
+                  "body": [
+                    { "type": "TextBlock", "text": "🚀 CI Notification", "weight": "Bolder", "size": "Medium" },
+                    { "type": "FactSet", "facts": [
+                      { "title": "Status", "value": "${{ steps.status.outputs.text }}" },
+                      { "title": "Repo", "value": "${{ github.repository }}" },
+                      { "title": "Branch", "value": "${{ github.ref_name }}" }
+                    ]}
+                  ],
+                  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                  "version": "1.4"
+                }
+              }]
+            }' "${{ secrets.TEAMS_WEBHOOK }}"
