@@ -90,9 +90,10 @@ jobs:
             echo "color=good" >> $GITHUB_OUTPUT
             echo "reason=All stages passed successfully." >> $GITHUB_OUTPUT
           elif [ "$TEST_RES" == "failure" ]; then
+            T_ERR="${{ needs.test.outputs.test_error }}"
             echo "status=Failed ❌" >> $GITHUB_OUTPUT
             echo "color=attention" >> $GITHUB_OUTPUT
-            echo "reason=Tests failed. Please check the test logs." >> $GITHUB_OUTPUT
+            echo "reason=$T_ERR" >> $GITHUB_OUTPUT
           else
             B_ERR="${{ needs.build-and-push.outputs.build_error }}"
             P_ERR="${{ needs.build-and-push.outputs.push_error }}"
