@@ -15,7 +15,8 @@ jobs:
   test:
     name: Run Test
     runs-on: ubuntu-latest
-
+    outputs:
+      test-error: ${{ steps.run-test.outputs.error_msg }}
     steps:
       - uses: actions/checkout@v4
       - name: Set up Go
@@ -23,29 +24,55 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
       - name: Test
+        id: run-test
         run: |
           go mod tidy
-          go test -v ./... -race -cover
+          if ! go test -v ./... -race -cover 2>&1 | tee test_log.txt; then
+            ERROR=$(tail -n 5 test_log.txt | tr -d '"\' | tr '\n' ' ')
+            echo "error_msg=Test Error: $ERROR" >> $GITHUB_OUTPUT
+            exit 1 
+          fi
+          exit 1
 
   build-and-push:
-      name: Build Docker Image
-      runs-on: ubuntu-latest
-      needs: test
-      steps:
-      - name: checkout
-        uses: actions/checkout@v3
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    outputs:
+      build-error: ${{ steps.build-img.outputs.error_msg }}
+      push_error: ${{ steps.push-img.outputs.error_msg }}
+    needs: test
+    steps:
+    - name: checkout
+      uses: actions/checkout@v3
 
-      - name: Login to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ vars.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+    - name: Login to Docker Hub
+      uses: docker/login-action@v2
+      with:
+        username: ${{ vars.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Build and Push Docker Image
-        run: |
-          docker build -t $IMAGE_NAME:latest -t $IMAGE_NAME:${{ github.sha }} .
-          docker push $IMAGE_NAME:latest
-          docker push $IMAGE_NAME:${{ github.sha }}
+    - name: Build Docker Image
+      id: build-img
+      run: |
+        if ! docker build -t $IMAGE_NAME:latest -t $IMAGE_NAME:${{ github.sha }} . 2>&1 | tee build_log.txt; then
+          ERROR_MSG=$(tail -n 5 build_log.txt | tr -d '"\' | tr '\n' ' ')
+          echo "error_msg=$ERROR_MSG" >> $GITHUB_OUTPUT
+          exit 1
+        fi
+
+    - name: Push image
+      id: push-img
+      run: |
+        if ! docker push $IMAGE_NAME:latest 2>&1 | tee push_log.txt; then
+          ERROR_MSG=$(tail -n 5 push_log.txt | tr -d '"\' | tr '\n' ' ')
+          echo "error_msg=$ERROR_MSG" >> $GITHUB_OUTPUT
+          exit 1
+        fi
+        if ! docker push $IMAGE_NAME:${{ github.sha }} 2>&1 | tee push_log.txt; then
+          ERROR_MSG=$(tail -n 5 push_log.txt | tr -d '"\' | tr '\n' ' ')
+          echo "error_msg=$ERROR_MSG" >> $GITHUB_OUTPUT
+          exit 1
+        fi
 
   notify:
     name: Notify Teams
@@ -67,9 +94,12 @@ jobs:
             echo "color=attention" >> $GITHUB_OUTPUT
             echo "reason=Tests failed. Please check the test logs." >> $GITHUB_OUTPUT
           else
+            B_ERR="${{ needs.build-and-push.outputs.build_error }}"
+            P_ERR="${{ needs.build-and-push.outputs.push_error }}"
+            FINAL_ERR="${B_ERR:-$P_ERR}"
             echo "status=Failed ❌" >> $GITHUB_OUTPUT
             echo "color=attention" >> $GITHUB_OUTPUT
-            echo "reason=Docker Build or Push to ACR failed." >> $GITHUB_OUTPUT
+            echo "reason=$FINAL_ERR" >> $GITHUB_OUTPUT
           fi
 
       - name: Notify Teams
