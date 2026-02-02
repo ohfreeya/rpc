@@ -39,7 +39,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       build-error: ${{ steps.build-img.outputs.error_msg }}
-      push_error: ${{ steps.push-img.outputs.error_msg }}
+      push-error: ${{ steps.push-img.outputs.error_msg }}
     needs: test
     steps:
     - name: checkout
@@ -90,13 +90,13 @@ jobs:
             echo "color=good" >> $GITHUB_OUTPUT
             echo "reason=All stages passed successfully." >> $GITHUB_OUTPUT
           elif [ "$TEST_RES" == "failure" ]; then
-            T_ERR="${{ needs.test.outputs.test_error }}"
+            T_ERR="${{ needs.test.outputs.test-error }}"
             echo "status=Failed ❌" >> $GITHUB_OUTPUT
             echo "color=attention" >> $GITHUB_OUTPUT
             echo "reason=$T_ERR" >> $GITHUB_OUTPUT
           else
-            B_ERR="${{ needs.build-and-push.outputs.build_error }}"
-            P_ERR="${{ needs.build-and-push.outputs.push_error }}"
+            B_ERR="${{ needs.build-and-push.outputs.build-error }}"
+            P_ERR="${{ needs.build-and-push.outputs.push-error }}"
             FINAL_ERR="${B_ERR:-$P_ERR}"
             echo "status=Failed ❌" >> $GITHUB_OUTPUT
             echo "color=attention" >> $GITHUB_OUTPUT
