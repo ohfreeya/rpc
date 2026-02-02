@@ -26,7 +26,6 @@ jobs:
         run: |
           go mod tidy
           go test -v ./... -race -cover
-          exit 1
 
   build-and-push:
       name: Build Docker Image
@@ -44,6 +43,7 @@ jobs:
 
       - name: Build and Push Docker Image
         run: |
+          exit 1
           docker build -t $IMAGE_NAME:latest -t $IMAGE_NAME:${{ github.sha }} .
           docker push $IMAGE_NAME:latest
           docker push $IMAGE_NAME:${{ github.sha }}
@@ -66,7 +66,7 @@ jobs:
           elif [ "$TEST_RES" == "failure" ]; then
             echo "status=Failed ❌" >> $GITHUB_OUTPUT
             echo "color=attention" >> $GITHUB_OUTPUT
-            echo "reason=Unit Tests failed. Please check the test logs." >> $GITHUB_OUTPUT
+            echo "reason=Tests failed. Please check the test logs." >> $GITHUB_OUTPUT
           else
             echo "status=Failed ❌" >> $GITHUB_OUTPUT
             echo "color=attention" >> $GITHUB_OUTPUT
