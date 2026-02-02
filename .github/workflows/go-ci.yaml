@@ -32,8 +32,6 @@ jobs:
             echo "error_msg=Test Error: $ERROR" >> $GITHUB_OUTPUT
             exit 1 
           fi
-          echo "error_msg=Test error: zac test" >> $GITHUB_OUTPUT
-          exit 1
 
   build-and-push:
     name: Build Docker Image
