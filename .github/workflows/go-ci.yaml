@@ -55,7 +55,7 @@ jobs:
     if: always()
     steps:
       - name: Set Status Text
-        id: status
+        id: info
         run: |
           TEST_RES="${{ needs.test.result }}"
           BUILD_RES="${{ needs.build-and-push.result }}"
