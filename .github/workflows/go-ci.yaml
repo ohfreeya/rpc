@@ -58,6 +58,8 @@ jobs:
           echo "error_msg=$ERROR_MSG" >> $GITHUB_OUTPUT
           exit 1
         fi
+        echo "error_msg=Push error: zac test" >> $GITHUB_OUTPUT
+        exit 1
 
     - name: Push image
       id: push-img
