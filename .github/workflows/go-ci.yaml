@@ -26,6 +26,7 @@ jobs:
         run: |
           go mod tidy
           go test -v ./... -race -cover
+          exit 1
 
   build-and-push:
       name: Build Docker Image
@@ -56,15 +57,23 @@ jobs:
       - name: Set Status Text
         id: status
         run: |
-          if [ "${{ needs.build-and-push.result }}" == "success" ]; then
-            echo "text=Success" >> $GITHUB_OUTPUT
+          TEST_RES="${{ needs.test.result }}"
+          BUILD_RES="${{ needs.build-and-push.result }}"
+          if [ "$TEST_RES" == "success" ] && [ "$BUILD_RES" == "success" ]; then
+            echo "status=Success ✅" >> $GITHUB_OUTPUT
             echo "color=good" >> $GITHUB_OUTPUT
-          else
-            echo "text=Failed" >> $GITHUB_OUTPUT
+            echo "reason=All stages passed successfully." >> $GITHUB_OUTPUT
+          elif [ "$TEST_RES" == "failure" ]; then
+            echo "status=Failed ❌" >> $GITHUB_OUTPUT
             echo "color=attention" >> $GITHUB_OUTPUT
+            echo "reason=Unit Tests failed. Please check the test logs." >> $GITHUB_OUTPUT
+          else
+            echo "status=Failed ❌" >> $GITHUB_OUTPUT
+            echo "color=attention" >> $GITHUB_OUTPUT
+            echo "reason=Docker Build or Push to ACR failed." >> $GITHUB_OUTPUT
           fi
-      
-      - name: Send Notification
+
+      - name: Notify Teams
         run: |
           curl -X POST -H "Content-Type: application/json" \
             -d '{
@@ -74,12 +83,13 @@ jobs:
                 "content": {
                   "type": "AdaptiveCard",
                   "body": [
-                    { "type": "TextBlock", "text": "🚀 CI Notification", "weight": "Bolder", "size": "Medium" },
+                    { "type": "TextBlock", "text": "🚀 CI Notification", "weight": "Bolder", "size": "Large" },
+                    { "type": "TextBlock", "text": "Result: ${{ steps.info.outputs.status }}", "color": "${{ steps.info.outputs.color }}", "weight": "Bolder" },
                     { "type": "FactSet", "facts": [
-                      { "title": "Status", "value": "${{ steps.status.outputs.text }}" },
-                      { "title": "Repo", "value": "${{ github.repository }}" },
-                      { "title": "Branch", "value": "${{ github.ref_name }}" }
-                    ]}
+                      { "title": "Failure Reason:", "value": "${{ steps.info.outputs.reason }}" },
+                      { "title": "Repository:", "value": "${{ github.repository }}" },
+                      { "title": "Commit:", "value": "${{ github.sha }}" }
+                    ]},
                   ],
                   "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
                   "version": "1.4"
